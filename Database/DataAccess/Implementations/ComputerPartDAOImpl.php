@@ -5,6 +5,7 @@ namespace Database\DataAccess\Implementations;
 use Database\DataAccess\Interfaces\ComputerPartDAO;
 use Database\DatabaseManager;
 use Models\ComputerPart;
+use Models\Post;
 use Models\DataTimeStamp;
 
 class ComputerPartDAOImpl implements ComputerPartDAO
@@ -159,34 +160,109 @@ class ComputerPartDAOImpl implements ComputerPartDAO
         return $computerParts;
     }
 
-    public static function insertImage($file_path,$file_name,$mine_type,$size): array {
-        
+
+
+
+
+
+    public function getAllPost(int $offset, int $limit): array
+    {
+        $mysqli = DatabaseManager::getMysqliConnection();
+
+        $query = "SELECT * FROM Posts LIMIT ?, ?";
+
+        $results = $mysqli->prepareAndFetchAll($query, 'ii', [$offset, $limit]);
+
+        return $results === null ? [] : $this->resultsToPosts($results);
+    }
+
+    public function insertImage($file_path,$file_name,$mime_type,$size,$shared_url) {
         
         $mysqli = DatabaseManager::getMysqliConnection();
 
-        $stmt = $mysqli->prepare("INSERT INTO images (title,file_path,file_name,url,delete_url,view_count,mine_type,expired_date,size) VALUES(?,?,?,?,?,?,?,?,?);");
+        $query = "INSERT INTO Posts (reply_to_id,subject,content,file_path,file_name,mime_type,size,url) VALUES(?,?,?,?,?,?,?,?);";
         
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $length = 16;
-        $random_string = str_shuffle($characters);
-        $random_string = substr($random_string, 0, $length);
-
-        $random_string2 = str_shuffle($characters);
-        $random_string2 = substr($random_string, 0, $length);
         $title='タイトル';
-        $date=date("Y/m/d H:i:s", strtotime("1 month"));
-        $view_count = 0; // ビューカウントの初期値
+        $content='コンテンツコンテンツコンテンツコンテンツ';
         // バインドパラメータ
-        $stmt->bind_param("sssssssss", $title,$file_path,$file_name,$shared_url, $delete_url,$view_count,$mine_type,$date,$size);
-        $stmt->execute();
+        $results = $mysqli->prepareAndExecute($query, 'isssssis', [null, $title,$content,$file_path,$file_name,$mime_type,$size,$shared_url]);
+        
+        // $query = "SELECT * FROM Posts LIMIT ?,?";
+        // $posts = $mysqli->prepareAndFetchAll($query,'ii',[0,9]);
 
+        return $results;
+        
+    }
 
-        $stmt = $mysqli->prepare("SELECT * FROM images ORDER BY uploaded_at DESC LIMIT 1");
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $snippet = $result->fetch_assoc();
+    public function insertReply($reply_to_id,$replyContent,$file_path,$file_name,$mime_type,$size) {
+        
+        $mysqli = DatabaseManager::getMysqliConnection();
 
-        return $snippet;
+        $query = "INSERT INTO Posts (reply_to_id,content,file_path,file_name,mime_type,size) VALUES(?,?,?,?,?,?);";
+        
+        // バインドパラメータ
+        $results = $mysqli->prepareAndExecute($query, 'issssi', [$reply_to_id,$replyContent,$file_path,$file_name,$mime_type,$size]);
+        
+        
+        return $reply_to_id;
+    }
+
+    public function getPostData($url): array {
+        
+        $mysqli = DatabaseManager::getMysqliConnection();
+
+        $query = "SELECT * FROM Posts WHERE url = ?";
+        $posts = $mysqli->prepareAndFetchAll($query,'s',[$url]);
+
+        return $posts === null ? null : $this->resultsToPosts($posts);
+        
+    }
+
+    public function getPostDataByPath($file_path): array {
+        
+        $mysqli = DatabaseManager::getMysqliConnection();
+
+        $query = "SELECT * FROM Posts WHERE file_path = ?";
+        $posts = $mysqli->prepareAndFetchAll($query,'s',[$file_path]);
+
+        return $posts;
+        
+    }
+
+    public function getPostDataByReplyToId($reply_to_id): array {
+        
+        $mysqli = DatabaseManager::getMysqliConnection();
+
+        $query = "SELECT * FROM Posts WHERE reply_to_id = ?";
+        $posts = $mysqli->prepareAndFetchAll($query,'s',[$reply_to_id]);
+
+        return $posts;
+        
+    }
+
+    private function resultToPost(array $data): Post{
+        return new Post(
+            reply_to_id: $data['reply_to_id'],
+            subject: $data['subject'],
+            content: $data['content'],
+            file_path: $data['file_path'],
+            file_name:$data['file_name'],
+            mime_type:$data['mime_type'],
+            size:$data['size'],
+            url:$data['url'],
+            timeStamp: new DataTimeStamp($data['created_at'], $data['updated_at'])
+           
+        );
+    }
+
+    private function resultsToPosts(array $results): array{
+        $Posts = [];
+
+        foreach($results as $Post){
+            $Posts[] = $this->resultToPost($Post);
+        }
+
+        return $Posts;
     }
 
 }

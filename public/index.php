@@ -18,7 +18,10 @@ $routes = include('Routing/routes.php');
 // リクエストURIを解析してパスだけを取得します。
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $path = ltrim($path, '/');
-
+$path1 = explode('/', $path)[0];
+if($path1 == 'png' || $path1 == 'jpeg' || $path1 == 'gif'){
+    $path = 'getImage';
+}
 // ルートにパスが存在するかチェックする
 if (isset($routes[$path])) {
     // コールバックを呼び出してrendererを作成します。

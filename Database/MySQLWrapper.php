@@ -47,8 +47,13 @@ class MySQLWrapper extends mysqli{
 
     public function prepareAndExecute(string $prepareQuery, string $types, array $data): bool{
         $this->typesAndDataValidationPass($types, $data);
+        
 
         $stmt = $this->prepare($prepareQuery);
+        if (!$stmt) {
+            // エラーハンドリング
+            throw new \Exception($this->error);
+        }
         if(count($data) > 0) $stmt->bind_param($types, ...$data);
         return $stmt->execute();
     }
